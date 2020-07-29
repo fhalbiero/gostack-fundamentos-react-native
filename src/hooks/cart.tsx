@@ -4,9 +4,13 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo
 } from 'react';
 
 import AsyncStorage from '@react-native-community/async-storage';
+
+
+const APP_KEY = '@APPLICATION:products';
 
 interface Product {
   id: string;
@@ -30,26 +34,54 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+
+       const data = await AsyncStorage.getItem(APP_KEY);
+       const resolvedData = data && JSON.parse(data);
+       setProducts(resolvedData.data);
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-  }, []);
+  const updateStorage = useCallback(async () => {
+     await AsyncStorage.setItem(APP_KEY, JSON.stringify(products));
+  }, [products]);
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+
+  const addToCart = useCallback(async (product:Product) => {
+      product.quantity = 1;
+      setProducts([...products, product]);
+
+      await updateStorage();
+  }, [products]);
+
+
+  const increment = useCallback(async (id:string) => {
+    products.forEach((product:Product) => {
+      if (product.id === id) {
+          product.quantity = product.quantity + 1;
+      }
+    });
+
+    await updateStorage();
+  }, [products]);
+
 
   const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+    products.forEach((product:Product) => {
+      if (product.id === id) {
+          if (product.quantity > 1) {
+            product.quantity = product.quantity - 1;
+          }
+      }
+    });
+    await updateStorage();
+  }, [products]);
+
+
 
   const value = React.useMemo(
-    () => ({ addToCart, increment, decrement, products }),
+    () => ({ products, addToCart, increment, decrement }),
     [products, addToCart, increment, decrement],
   );
 
