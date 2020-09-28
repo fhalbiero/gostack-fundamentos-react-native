@@ -34,14 +34,16 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
+       const response = await AsyncStorage.getItem(APP_KEY);
 
-       const data = await AsyncStorage.getItem(APP_KEY);
-       const resolvedData = data && JSON.parse(data);
-       setProducts(resolvedData.data);
+       if (response) {
+          setProducts([...JSON.parse(response)]);
+       }
     }
 
     loadProducts();
   }, []);
+
 
   const updateStorage = useCallback(async () => {
      await AsyncStorage.setItem(APP_KEY, JSON.stringify(products));
@@ -49,41 +51,44 @@ const CartProvider: React.FC = ({ children }) => {
 
 
   const addToCart = useCallback(async (product:Product) => {
-      product.quantity = 1;
-      setProducts([...products, product]);
+      const productExists = products.find( p => p.id === product.id );
+
+      if (productExists) {
+        setProducts( products.map( p =>
+            p.id === product.id ? {...product, quantity: p.quantity + 1} : p
+        ));
+        await updateStorage();
+
+        return;
+      }
+
+      setProducts([...products, { ...product, quantity: 1}]);
 
       await updateStorage();
   }, [products]);
 
 
   const increment = useCallback(async (id:string) => {
-    products.forEach((product:Product) => {
-      if (product.id === id) {
-          product.quantity = product.quantity + 1;
-      }
-    });
+    setProducts( products.map( product =>
+        product.id === id ? {...product, quantity: product.quantity + 1} : product
+    ));
 
     await updateStorage();
   }, [products]);
 
 
   const decrement = useCallback(async id => {
-    products.forEach((product:Product) => {
-      if (product.id === id) {
-          if (product.quantity > 1) {
-            product.quantity = product.quantity - 1;
-          }
-      }
-    });
-    await updateStorage();
+    setProducts( products.map( product =>
+      product.id === id ? {...product, quantity: product.quantity - 1} : product
+  ));
+
+  await updateStorage();
   }, [products]);
 
 
-
-  const value = React.useMemo(
-    () => ({ products, addToCart, increment, decrement }),
-    [products, addToCart, increment, decrement],
-  );
+  const value = useMemo(() => (
+    { products, addToCart, increment, decrement }
+  ), [products, addToCart, increment, decrement] );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
